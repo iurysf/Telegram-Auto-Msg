@@ -261,7 +261,18 @@ class App(ctk.CTk):
         self.settings_card.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         
         ctk.CTkLabel(self.settings_card, text=self.i18n[self.current_lang]["card_bot"], font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 5))
-        self.source_entry = self.add_input(self.settings_card, self.i18n[self.current_lang]["source"], self.i18n[self.current_lang]["placeholder_source"])
+        # --- CUSTOM SOURCE ENTRY COM BOTÃO DE PESQUISA ---
+        source_frame = ctk.CTkFrame(self.settings_card, fg_color="transparent")
+        source_frame.pack(fill="x", padx=20, pady=8)
+        
+        ctk.CTkLabel(source_frame, text=self.i18n[self.current_lang]["source"], width=110, anchor="w", font=ctk.CTkFont(weight="bold")).pack(side="left")
+        
+        self.source_entry = ctk.CTkEntry(source_frame, placeholder_text=self.i18n[self.current_lang]["placeholder_source"], border_width=1)
+        self.source_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
+        self.search_src_btn = ctk.CTkButton(source_frame, text="🔍", width=35, fg_color="#4b4b4b", hover_color="#333333", command=self.open_source_search)
+        self.search_src_btn.pack(side="right")
+        # -------------------------------------------------
         self.interval_entry = self.add_input(self.settings_card, self.i18n[self.current_lang]["interval"], self.i18n[self.current_lang]["placeholder_interval"], width=80)
 
 
@@ -496,6 +507,102 @@ class App(ctk.CTk):
                     self.log(self.i18n[self.current_lang]["log_error"].format(e=str(e)))
 
             threading.Thread(target=check_2fa, daemon=True).start()
+
+    def open_source_search(self):
+        """Abre uma janela modal para pesquisar e selecionar o chat fonte."""
+        if not self.engine.is_connected:
+            self.log("Erro: Conecte ao Telegram primeiro para buscar conversas.")
+            return
+
+        # Criação da janela secundária bloqueante
+        popup = ctk.CTkToplevel(self)
+        popup.title(self.i18n[self.current_lang].get("search_source_title", "Buscar Fonte"))
+        popup.geometry("450x550")
+        popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        popup.grab_set()
+
+        # Centralizar na tela
+        popup.update_idletasks()
+        x = (popup.winfo_screenwidth() // 2) - (450 // 2)
+        y = (popup.winfo_screenheight() // 2) - (550 // 2)
+        popup.geometry(f"+{x}+{y}")
+
+        # Barra de Pesquisa
+        search_var = ctk.StringVar()
+        search_entry = ctk.CTkEntry(
+            popup, 
+            placeholder_text=self.i18n[self.current_lang].get("search_placeholder", "Digite nome ou ID..."), 
+            textvariable=search_var,
+            height=35
+        )
+        search_entry.pack(fill="x", padx=20, pady=15)
+
+        # Área de Resultados com Rolagem
+        results_frame = ctk.CTkScrollableFrame(popup)
+        results_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        # Feedback de carregamento
+        loading_lbl = ctk.CTkLabel(results_frame, text=self.i18n[self.current_lang].get("loading_chats", "Buscando..."))
+        loading_lbl.pack(pady=20)
+
+        all_dialogs = []
+
+        def select_chat(chat_id):
+            """Quando o usuário clica em 'Selecionar', joga o ID na caixa e fecha o popup"""
+            self.source_entry.delete(0, "end")
+            self.source_entry.insert(0, str(chat_id))
+            popup.grab_release()
+            popup.destroy()
+
+        def update_list(*args):
+            """Filtra a lista em tempo real toda vez que o usuário digita uma letra"""
+            query = search_var.get().lower()
+            
+            # Limpa os resultados antigos da tela
+            for widget in results_frame.winfo_children():
+                widget.destroy()
+            
+            count = 0
+            for d in all_dialogs:
+                if query in d['name'].lower() or query in str(d['id']):
+                    if count > 50:  # Limita a 50 resultados para a UI não travar se o cara tiver 5 mil grupos
+                        break
+                    
+                    row = ctk.CTkFrame(results_frame, fg_color="transparent")
+                    row.pack(fill="x", pady=2)
+                    
+                    btn = ctk.CTkButton(
+                        row, 
+                        text=self.i18n[self.current_lang].get("btn_select", "Selecionar"), 
+                        width=70, 
+                        command=lambda cid=d['id']: select_chat(cid)
+                    )
+                    btn.pack(side="right", padx=5)
+
+                    lbl = ctk.CTkLabel(row, text=f"{d['name']} ({d['id']})", anchor="w")
+                    lbl.pack(side="left", fill="x", expand=True, padx=5)
+                    
+                    count += 1
+
+        def fetch_data():
+            """Busca os diálogos no Telegram em uma thread separada para não congelar a UI"""
+            try:
+                future = self.engine.run_coro(self.engine.get_dialogs(timeout_sec=20))
+                nonlocal all_dialogs
+                all_dialogs = future.result()
+                
+                # Apaga o texto de "Carregando" e mostra a lista
+                self.after(0, lambda: loading_lbl.destroy() if loading_lbl.winfo_exists() else None)
+                self.after(0, update_list)
+            except Exception as e:
+                self.after(0, lambda: loading_lbl.configure(text=f"Erro: {e}"))
+
+        # Inicia a busca invisível no fundo
+        threading.Thread(target=fetch_data, daemon=True).start()
+        
+        # Liga a barra de pesquisa à função de filtrar a lista
+        search_var.trace_add("write", update_list)
 
     def toggle_bot(self):
         if not self.engine.is_running:

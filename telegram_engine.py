@@ -161,8 +161,13 @@ class TelegramEngine:
     async def _get_dialogs_internal(self):
         try:
             dialogs = []
-            async for dialog in self.client.iter_dialogs(limit=100):
-                if dialog.is_group or dialog.is_channel:
+            # Aumentamos o limite para 200 para garantir que pega os bots recentes
+            async for dialog in self.client.iter_dialogs(limit=200):
+                # Verifica se é um Bot de forma segura
+                is_bot = getattr(dialog.entity, 'bot', False) if dialog.is_user and dialog.entity else False
+                
+                # Se for Grupo, Canal ou Bot, adicionamos na lista
+                if dialog.is_group or dialog.is_channel or is_bot:
                     dialogs.append({
                         "name": dialog.name,
                         "id": dialog.id

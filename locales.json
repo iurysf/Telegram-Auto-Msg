@@ -40,7 +40,11 @@
         "placeholder_id": "Ex: 1234567",
         "placeholder_hash": "Ex: abc...",
         "placeholder_source": "Ex: -100...",
-        "placeholder_interval": "Ex: 60"
+        "placeholder_interval": "Ex: 60",
+        "search_source_title": "Search Source Chat",
+        "search_placeholder": "Type name or ID to filter...",
+        "btn_select": "Select",
+        "loading_chats": "Fetching chats..."
     },
     "pt": {
         "sidebar_title": "AutoMsg Bot",
@@ -83,6 +87,10 @@
         "placeholder_id": "Ex: 1234567",
         "placeholder_hash": "Ex: abc...",
         "placeholder_source": "Ex: -100...",
-        "placeholder_interval": "Ex: 60"
+        "placeholder_interval": "Ex: 60",
+        "search_source_title": "Buscar Chat Fonte",
+        "search_placeholder": "Digite o nome ou ID...",
+        "btn_select": "Selecionar",
+        "loading_chats": "Buscando conversas..."
     }
 }
