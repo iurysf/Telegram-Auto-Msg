@@ -54,8 +54,20 @@ class TelegramEngine:
             self.logger.error(f"Login error: {e}")
             return str(e)
 
+    def _resolve_id(self, entity_id):
+        """Standardize ID resolution for both Source and Targets"""
+        try:
+            if isinstance(entity_id, str):
+                # Handle numeric string IDs (including -100 prefixes for channels)
+                if entity_id.startswith('-') or entity_id.isdigit():
+                    return int(entity_id)
+            return entity_id
+        except ValueError:
+            return entity_id
+
     async def get_last_message(self, source_id, timeout_sec=45):
         # Enforce timeout inside the task, not the thread future
+        source_id = self._resolve_id(source_id)
         try:
             return await asyncio.wait_for(self._get_last_message_internal(source_id), timeout=timeout_sec)
         except asyncio.TimeoutError:
@@ -64,13 +76,6 @@ class TelegramEngine:
 
     async def _get_last_message_internal(self, source_id):
         try:
-            # Handle numeric IDs
-            try:
-                if isinstance(source_id, str) and (source_id.startswith('-100') or source_id.isdigit()):
-                    source_id = int(source_id)
-            except ValueError:
-                pass
-
             messages = await self.client.get_messages(source_id, limit=1)
             if messages:
                 return messages[0]
@@ -110,7 +115,8 @@ class TelegramEngine:
         # Store original text to reset or reuse correctly in loop
         original_text = message.text or ""
 
-        for target in target_ids:
+        for raw_target in target_ids:
+            target = self._resolve_id(raw_target)
             try:
                 # Update message.text directly. Telethon recalculates entities 
                 # internally when this property is set.
@@ -142,7 +148,7 @@ class TelegramEngine:
                 self.logger.error(f"Error sending to {target}: {e}")
 
     async def logout(self):
-        """Disconnect and delete the session file"""
+        """Disconnect and delete the session file on server side"""
         if self.client:
             await self.client.log_out()
             await self.client.disconnect()
@@ -150,19 +156,34 @@ class TelegramEngine:
             return True
         return False
 
-    async def get_dialogs(self, timeout_sec=60):
+    async def disconnect(self):
+        """Just disconnect to release file locks"""
+        if self.client:
+            await self.client.disconnect()
+            try:
+                # Force close the SQLite session database to release Windows file locks
+                if hasattr(self.client.session, 'close'):
+                    self.client.session.close()
+            except Exception:
+                pass
+            self.client = None
+            self.is_connected = False
+            return True
+        return False
+
+    async def get_dialogs(self, limit=200, timeout_sec=60):
         # Wrap the search in a safe asyncio timeout (Server-side)
         try:
-            return await asyncio.wait_for(self._get_dialogs_internal(), timeout=timeout_sec)
+            return await asyncio.wait_for(self._get_dialogs_internal(limit), timeout=timeout_sec)
         except asyncio.TimeoutError:
             self.logger.error("Timeout while fetching groups!")
             return []
 
-    async def _get_dialogs_internal(self):
+    async def _get_dialogs_internal(self, limit):
         try:
             dialogs = []
-            # Aumentamos o limite para 200 para garantir que pega os bots recentes
-            async for dialog in self.client.iter_dialogs(limit=200):
+            # Use the provided limit
+            async for dialog in self.client.iter_dialogs(limit=limit):
                 # Verifica se é um Bot de forma segura
                 is_bot = getattr(dialog.entity, 'bot', False) if dialog.is_user and dialog.entity else False
                 

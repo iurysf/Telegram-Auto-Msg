@@ -137,6 +137,97 @@ async def list_groups():
     console.print(table)
     Prompt.ask("\nPressione ENTER para voltar ao menu")
 
+async def save_new_groups():
+    show_header()
+    console.print("[yellow]Buscando seus Top 100 Diálogos...[/yellow]")
+    
+    future = engine.run_coro(engine.get_dialogs(limit=100))
+    dialogs = await asyncio.wrap_future(future)
+    
+    if not dialogs:
+        console.print("[red]Nenhum grupo encontrado ou erro na conexão.[/red]")
+        Prompt.ask("\nPressione ENTER para voltar")
+        return
+
+    table = Table(title="Top 100 Diálogos")
+    table.add_column("#", style="bold yellow")
+    table.add_column("Nome", style="cyan")
+    table.add_column("ID", style="magenta")
+    
+    for i, d in enumerate(dialogs, 1):
+        table.add_row(str(i), d["name"], str(d["id"]))
+    
+    console.print(table)
+    
+    indices_str = Prompt.ask("\nDigite os números dos grupos que deseja salvar (separados por vírgula)")
+    try:
+        selected_indices = [int(idx.strip()) for idx in indices_str.split(",") if idx.strip()]
+        
+        config = load_config()
+        if "groups" not in config:
+            config["groups"] = {}
+            
+        count = 0
+        for idx in selected_indices:
+            if 1 <= idx <= len(dialogs):
+                d = dialogs[idx-1]
+                config["groups"][str(d["id"])] = {
+                    "name": d["name"],
+                    "selected": True
+                }
+                count += 1
+        
+        save_config(config)
+        console.print(f"\n[bold green]Sucesso! {count} grupos foram salvos vinculados à sua conta.[/bold green]")
+        time.sleep(2)
+    except ValueError:
+        console.print("[red]Erro: Digite apenas números separados por vírgula.[/red]")
+        time.sleep(2)
+
+async def view_saved_groups():
+    show_header()
+    config = load_config()
+    saved_groups = config.get("groups", {})
+    
+    if not saved_groups:
+        console.print("[yellow]Você ainda não salvou nenhum grupo.[/yellow]")
+        Prompt.ask("\nPressione ENTER para voltar")
+        return
+
+    table = Table(title="Grupos Salvos no config.json")
+    table.add_column("Nome", style="cyan")
+    table.add_column("ID", style="magenta")
+    
+    for gid, info in saved_groups.items():
+        table.add_row(info.get("name", "Unknown"), gid)
+    
+    console.print(table)
+    Prompt.ask("\nPressione ENTER para voltar")
+
+async def manage_groups():
+    while True:
+        show_header()
+        console.print("[bold yellow]📂 Gerenciar Grupos Alvo[/bold yellow]\n")
+        
+        table = Table(show_header=False, box=None)
+        table.add_column("Opção", style="bold cyan")
+        table.add_column("Descrição")
+        
+        table.add_row("1", "📥 Salvar novos grupos (Top 100)")
+        table.add_row("2", "📋 Ver grupos salvos")
+        table.add_row("3", "⬅️ Voltar")
+        
+        console.print(table)
+        
+        choice = Prompt.ask("\nEscolha uma opção", choices=["1", "2", "3"])
+        
+        if choice == "1":
+            await save_new_groups()
+        elif choice == "2":
+            await view_saved_groups()
+        elif choice == "3":
+            break
+
 async def run_broadcaster(headless=False):
     config = load_config()
     cli_defaults = config.get("cli_defaults", {})
@@ -151,8 +242,19 @@ async def run_broadcaster(headless=False):
             sys.exit(1)
     else:
         show_header()
+        
+        # Automatically use saved groups from config.json
+        saved_groups = config.get("groups", {})
+        
+        if not saved_groups:
+            console.print("[yellow]Aviso: Nenhum grupo salvo encontrado no config.json.[/yellow]")
+            console.print("[cyan]Vá em 'Gerenciar Grupos Alvo' para salvar os grupos primeiro.[/cyan]")
+            dest_ids_str = Prompt.ask("\nOu digite os IDs de Destino manualmente agora (separados por vírgula)", default=cli_defaults.get("destination_ids", ""))
+        else:
+            dest_ids_str = ",".join(saved_groups.keys())
+            console.print(f"[green]Utilizando {len(saved_groups)} grupos salvos automaticamente.[/green]")
+
         source_id = Prompt.ask("ID do Grupo Fonte", default=str(cli_defaults.get("source_id", "")))
-        dest_ids_str = Prompt.ask("IDs de Destino (separados por vírgula)", default=cli_defaults.get("destination_ids", ""))
         interval_val = int(Prompt.ask("Intervalo (segundos)", default=str(cli_defaults.get("interval", 60))))
         
         # Save defaults
@@ -164,6 +266,10 @@ async def run_broadcaster(headless=False):
         save_config(config)
 
     dest_ids = [did.strip() for did in dest_ids_str.split(",") if did.strip()]
+    if not dest_ids:
+        console.print("[red]Erro: Nenhum grupo de destino configurado.[/red]")
+        time.sleep(2)
+        return
     
     if not headless:
         show_header()
@@ -209,15 +315,30 @@ async def reset_app():
     show_header()
     if Confirm.ask("[bold red]ATENÇÃO: Isso apagará todas as configurações e a sessão. Continuar?[/bold red]"):
         try:
+            # RELEASE LOCK FIRST
+            console.print("[cyan]Desconectando e liberando arquivos...[/cyan]")
+            future = engine.run_coro(engine.disconnect())
+            await asyncio.wrap_future(future)
+            
+            # Delay para o Windows 
+            await asyncio.sleep(1)
+            
             if os.path.exists(CONFIG_FILE):
                 os.remove(CONFIG_FILE)
+                
             for f in os.listdir("."):
                 if f.endswith(".session") or f.endswith(".session-journal"):
-                    os.remove(f)
-            console.print("[green]Reset concluído. O script será reiniciado.[/green]")
-            time.sleep(2)
-            python = sys.executable
-            os.execl(python, python, *sys.argv)
+                    for _ in range(3): # Tentativas para lock do Windows
+                        try:
+                            os.remove(f)
+                            break
+                        except Exception:
+                            time.sleep(1)
+            
+            console.print("[green]Reset concluído com sucesso![/green]")
+            console.print("\n[bold yellow]IMPORTANTE: No Windows, recomendamos reiniciar o script manualmente.[/bold yellow]")
+            console.print("[bold cyan]Por favor, execute: py main_cli.py[/bold cyan]")
+            sys.exit(0)
         except Exception as e:
             console.print(f"[red]Erro ao resetar: {e}[/red]")
             Prompt.ask("Pressione ENTER para voltar")
@@ -230,7 +351,7 @@ async def main_menu():
         table.add_column("Descrição")
         
         table.add_row("1", "🚀 Iniciar Broadcaster (Clonagem)")
-        table.add_row("2", "📋 Listar Grupos e IDs")
+        table.add_row("2", "📂 Gerenciar Grupos Alvo")
         table.add_row("3", "🔄 Resetar Configurações")
         table.add_row("4", "❌ Sair")
         
@@ -241,7 +362,7 @@ async def main_menu():
         if choice == "1":
             await run_broadcaster()
         elif choice == "2":
-            await list_groups()
+            await manage_groups()
         elif choice == "3":
             await reset_app()
         elif choice == "4":
@@ -320,9 +441,9 @@ async def boot():
 if __name__ == "__main__":
     try:
         asyncio.run(boot())
+    except SystemExit:
+        pass
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        # Don't show error if it's just exit
-        if str(e) != "0":
-            console.print(f"[bold red]Erro fatal na inicialização: {e}[/bold red]")
+        console.print(f"[bold red]Erro fatal na inicialização: {e}[/bold red]")
