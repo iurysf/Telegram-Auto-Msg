@@ -12,42 +12,51 @@ from PIL import Image, ImageDraw
 from dotenv import load_dotenv
 import ctypes
 
-# Fix: Force Windows to show the correct icon in the Taskbar
-try:
-    myappid = 'iurysf.automsg.bot.v1' 
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-except:
-    pass
-
+# Configuração de ambiente
 load_dotenv()
 
 def resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller"""
+    """ Retorna o caminho absoluto do arquivo, seja rodando no Python ou no .exe compilado """
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        # Se estiver rodando como .exe, o PyInstaller cria a pasta temporária _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
+        # Se estiver rodando normal no terminal, usa a pasta atual
         base_path = os.path.abspath(".")
+
     return os.path.join(base_path, relative_path)
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Telegram MSG Bot")
+        self.title("AutoTelegram Bot v1.0")
         self.geometry("800x600")
-        self.after(200, lambda: self.state('zoomed')) # Delay to avoid CTk displacement bug
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
         
-        # Set window icon
-        def set_icon():
-            try:
-                icon_path = resource_path("icon.ico")
-                if os.path.exists(icon_path):
-                    self.iconbitmap(icon_path)
-            except: pass
-        self.after(200, set_icon)
+        # --- NOVO CÓDIGO DO ÍCONE ---
+        # 1. Pega o caminho correto do ícone (funciona no .exe e no .py)
+        icon_path = resource_path("icon.ico")
+        
+        # 2. Truque do ctypes (Para forçar o Windows a mostrar o ícone na Barra de Tarefas)
+        try:
+            myappid = 'iurysf.automsg.bot.1.0' # String qualquer, mas precisa ser única
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception:
+            pass
+            
+        # 3. Seta o ícone na janela (Barra de título)
+        try:
+            self.iconbitmap(icon_path)
+            
+            # 4. Fallback com iconphoto para garantir a barra de tarefas em alguns casos
+            from PIL import Image, ImageTk
+            img = ImageTk.PhotoImage(Image.open(icon_path))
+            self.iconphoto(True, img)
+        except Exception as e:
+            print(f"Erro ao carregar ícone: {e}")
+        # -----------------------------
+        
+        self.after(200, lambda: self.state('zoomed'))
 
         self.engine = TelegramEngine()
         self.group_vars = {} # {id: (checkbox, frame)}
