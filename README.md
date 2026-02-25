@@ -44,6 +44,75 @@ Before using the bot, you need to obtain your Telegram API credentials:
    python main_gui.py
    ```
 
+## 📖 Usage Guide / Guia de Uso
+
+<details>
+<summary><b>🇺🇸 Click to view the English Guide</b></summary>
+
+<br>
+
+### 1. First Run & Configuration
+1. Open the application (`main_gui.py` or `.exe`).
+2. **Select your Language**: Choose English on the first startup.
+3. **API Setup**:
+   - Paste your `API ID`, `API Hash`, and `Phone Number` (International format: `+123456789`).
+   - Click **🔌 Connect Telegram**.
+   - Enter the login code sent to your Telegram app.
+   - *(Optional)* If you have 2FA enabled, enter your cloud password.
+
+### 2. Selecting Source & Targets
+*   **Source Group (Where to copy from):**
+    - Click the 🔍 **Search Icon** next to the "Source Group ID" field.
+    - Select the chat you want to monitor.
+*   **Target Groups (Where to send to):**
+    - Click **🔍 Fetch My Groups** on the sidebar.
+    - Check ☑️ the boxes for every group you want to broadcast to.
+
+### 3. Broadcasting
+1. Set the **Interval** (e.g., `60` seconds).
+   - *Note: The bot adds a random delay (jitter) to this interval for safety.*
+2. Click **▶️ Start Broadcaster**.
+3. **Monitor the Logs**: The black terminal window will show real-time actions.
+4. To stop, simply click **⏹️ Stop Broadcaster**.
+
+</details>
+
+<details>
+<summary><b>🇧🇷 Clique para ver o Guia em Português</b></summary>
+
+<br>
+
+### 1. Primeira Execução
+1. Abra o aplicativo (`main_gui.py` ou `.exe`).
+2. **Escolha o Idioma**: Selecione Português na primeira tela.
+3. **Configuração da API**:
+   - Cole seu `API ID`, `API Hash` e `Telefone` (Formato: `+5511999999999`).
+   - Clique em **🔌 Conectar ao Telegram**.
+   - Digite o código de login enviado para o seu app do Telegram.
+
+### 2. Selecionando Fonte e Destinos
+*   **Grupo Fonte (Origem):**
+    - Clique na 🔍 **Lupa** ao lado do campo "ID Grupo Fonte".
+    - Selecione o grupo/canal/bot que você deseja monitorar na lista.
+*   **Grupos de Destino (Alvos):**
+    - Clique em **🔍 Buscar Meus Grupos** na barra lateral.
+    - Marque ☑️ as caixas dos grupos para onde as mensagens serão enviadas.
+
+### 3. Iniciando os Disparos
+1. Defina o **Intervalo** (ex: `60` segundos).
+2. Clique em **▶️ Iniciar Disparos**.
+3. Acompanhe o **Terminal**: O bot mostrará em tempo real quais mensagens estão sendo copiadas e para onde estão indo, respeitando os delays de segurança.
+4. Para parar, clique em **⏹️ Parar Disparos**.
+
+</details>
+
+<br>
+
+### 💡 Pro Tips for Safety
+- **Interval**: We recommend keeping the interval above `60` seconds to avoid flood limits.
+- **Targets**: Do not broadcast to more than 50 groups at once with a single account.
+- **Content**: Avoid sending spam, as user reports are the #1 cause of bans.
+
 ## 📦 Compilation to EXE
 
 To generate a standalone Windows executable without a background console:
