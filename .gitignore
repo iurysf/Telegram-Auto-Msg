@@ -1,0 +1,22 @@
+# Credentials and Configuration
+config.json
+.env
+*.session
+*.session-journal
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+ENV/
+
+# PyInstaller / Compilation
+build/
+dist/
+*.spec
+
+# IDEs
+.vscode/
+.idea/
+.gemini/

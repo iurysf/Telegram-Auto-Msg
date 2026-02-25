@@ -1,0 +1,4 @@
+telethon
+customtkinter
+python-dotenv
+pillow
