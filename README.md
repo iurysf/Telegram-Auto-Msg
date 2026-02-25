@@ -1,6 +1,6 @@
 # Telegram Auto-Message Bot
 
-A modern, multi-threaded Telegram UserBot with a graphical interface (GUI). It allows you to monitor a source chat and automatically broadcast the latest messages (Text, Photos, Videos, Documents) to multiple target groups using advanced anti-detection techniques.
+A modern, multi-threaded Telegram UserBot available in two flavors: a beautiful graphical interface (GUI) for Desktop users, and a powerful, lightweight Command Line Interface (CLI) for VPS/Server deployments. It allows you to monitor a source chat and automatically broadcast the latest messages (Text, Photos, Videos, Documents) to multiple target groups using advanced anti-detection techniques.
 
 > ⚠️ **Disclaimer:** This tool is intended for educational purposes only. Automating personal Telegram accounts (UserBots) violates Telegram's Terms of Service. Use this software responsibly and at your own risk. The author is not responsible for any banned accounts or damages caused by the misuse of this tool.
 
@@ -17,7 +17,7 @@ A modern, multi-threaded Telegram UserBot with a graphical interface (GUI). It a
 
 ## 📸 Screenshots
 
-![Main UI](https://private-user-images.githubusercontent.com/98192149/554869280-459535a9-4283-42b2-84aa-1cfcc8e64444.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzIwMzc2MTQsIm5iZiI6MTc3MjAzNzMxNCwicGF0aCI6Ii85ODE5MjE0OS81NTQ4NjkyODAtNDU5NTM1YTktNDI4My00MmIyLTg0YWEtMWNmY2M4ZTY0NDQ0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAyMjUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMjI1VDE2MzUxNFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTE1YWU3MTcxNDIxMDFkNzM0MWQ2YWI3ZjM1MGRiOTNlNDU1MTE5MGEzNmJjNTliY2M3NDBmN2ZiYWYwZGYwMWYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7LAtDzhyINrXVGYPPqJgny6O5lex9M-Oa9onD0xQ2lk)
+![Main UI](https://private-user-images.githubusercontent.com/98192149/554976958-53f141ad-3ac7-474f-9f7e-81b41a6610b1.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzIwNDk4ODUsIm5iZiI6MTc3MjA0OTU4NSwicGF0aCI6Ii85ODE5MjE0OS81NTQ5NzY5NTgtNTNmMTQxYWQtM2FjNy00NzRmLTlmN2UtODFiNDFhNjYxMGIxLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAyMjUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMjI1VDE5NTk0NVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTNlNmZkZDZkNzNhZTA4OWVmMGIzOTQyNDg5NmFhYjk5YTNhNTY4YzVjOGI4YjMyZmIxYTVkYmVlMmE4MTM5MWYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.tc2Z-tu__XaqWiPVhfUOmOJ0Q-hYSiVwWIi-t6QnNV8)
 
 ## 🔑 Prerequisites
 
@@ -40,9 +40,15 @@ Before using the bot, you need to obtain your Telegram API credentials:
    ```
 
 3. Run the application:
-   ```bash
-   python main_gui.py
-   ```
+   - **Desktop GUI**:
+     ```bash
+     python main_gui.py
+     ```
+   - **Terminal/Server CLI**:
+     ```bash
+     python main_cli.py
+     ```
+     *(Use `python main_cli.py --headless` to automatically start broadcasting in the background using your last saved CLI settings!)*
 
 ## 📖 Usage Guide / Guia de Uso
 

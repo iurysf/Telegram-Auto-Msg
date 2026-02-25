@@ -2,3 +2,5 @@ telethon
 customtkinter
 python-dotenv
 pillow
+rich
+colorama
