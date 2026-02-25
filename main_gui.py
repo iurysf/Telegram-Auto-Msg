@@ -12,16 +12,16 @@ from PIL import Image, ImageDraw
 from dotenv import load_dotenv
 import ctypes
 
-# Configuração de ambiente
+# Environment configuration
 load_dotenv()
 
 def resource_path(relative_path):
-    """ Retorna o caminho absoluto do arquivo, seja rodando no Python ou no .exe compilado """
+    """ Returns the absolute path of the file, whether running in Python or the compiled .exe """
     try:
-        # Se estiver rodando como .exe, o PyInstaller cria a pasta temporária _MEIPASS
+        # If running as .exe, PyInstaller creates the temporary folder _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
-        # Se estiver rodando normal no terminal, usa a pasta atual
+        # If running normally in the terminal, use the current folder
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
@@ -33,22 +33,22 @@ class App(ctk.CTk):
         self.title("AutoTelegram Bot v1.0")
         self.geometry("800x600")
         
-        # --- NOVO CÓDIGO DO ÍCONE ---
-        # 1. Pega o caminho correto do ícone (funciona no .exe e no .py)
+        # --- NEW ICON CODE ---
+        # 1. Get the correct path for the icon (works in .exe and .py)
         icon_path = resource_path("icon.ico")
         
-        # 2. Truque do ctypes (Para forçar o Windows a mostrar o ícone na Barra de Tarefas)
+        # 2. ctypes trick (To force Windows to show the icon in the Taskbar)
         try:
-            myappid = 'iurysf.automsg.bot.1.0' # String qualquer, mas precisa ser única
+            myappid = 'iurysf.automsg.bot.1.0' # Any string, but must be unique
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception:
             pass
             
-        # 3. Seta o ícone na janela (Barra de título)
+        # 3. Set the icon on the window (Title bar)
         try:
             self.iconbitmap(icon_path)
             
-            # 4. Fallback com iconphoto para garantir a barra de tarefas em alguns casos
+            # 4. Fallback with iconphoto to ensure the taskbar in some cases
             from PIL import Image, ImageTk
             img = ImageTk.PhotoImage(Image.open(icon_path))
             self.iconphoto(True, img)
@@ -270,7 +270,7 @@ class App(ctk.CTk):
         self.settings_card.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         
         ctk.CTkLabel(self.settings_card, text=self.i18n[self.current_lang]["card_bot"], font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 5))
-        # --- CUSTOM SOURCE ENTRY COM BOTÃO DE PESQUISA ---
+        # --- CUSTOM SOURCE ENTRY WITH SEARCH BUTTON ---
         source_frame = ctk.CTkFrame(self.settings_card, fg_color="transparent")
         source_frame.pack(fill="x", padx=20, pady=8)
         
@@ -429,7 +429,7 @@ class App(ctk.CTk):
                 # Timeout is now handled inside the engine via asyncio.wait_for
                 dialogs = future.result() 
                 if not dialogs:
-                    self.log("Nenhum grupo encontrado ou timeout na conexão.")
+                    self.log("No groups found or connection timeout.")
                     return
                     
                 self.log(f"Found {len(dialogs)} chats. Adding to selector...")
@@ -518,64 +518,64 @@ class App(ctk.CTk):
             threading.Thread(target=check_2fa, daemon=True).start()
 
     def open_source_search(self):
-        """Abre uma janela modal para pesquisar e selecionar o chat fonte."""
+        """Opens a modal window to search and select the source chat."""
         if not self.engine.is_connected:
-            self.log("Erro: Conecte ao Telegram primeiro para buscar conversas.")
+            self.log("Error: Connect to Telegram first to fetch chats.")
             return
 
-        # Criação da janela secundária bloqueante
+        # Creation of the blocking secondary window
         popup = ctk.CTkToplevel(self)
-        popup.title(self.i18n[self.current_lang].get("search_source_title", "Buscar Fonte"))
+        popup.title(self.i18n[self.current_lang].get("search_source_title", "Search Source"))
         popup.geometry("450x550")
         popup.resizable(False, False)
         popup.attributes("-topmost", True)
         popup.grab_set()
 
-        # Centralizar na tela
+        # Center on screen
         popup.update_idletasks()
         x = (popup.winfo_screenwidth() // 2) - (450 // 2)
         y = (popup.winfo_screenheight() // 2) - (550 // 2)
         popup.geometry(f"+{x}+{y}")
 
-        # Barra de Pesquisa
+        # Search Bar
         search_var = ctk.StringVar()
         search_entry = ctk.CTkEntry(
             popup, 
-            placeholder_text=self.i18n[self.current_lang].get("search_placeholder", "Digite nome ou ID..."), 
+            placeholder_text=self.i18n[self.current_lang].get("search_placeholder", "Type name or ID..."), 
             textvariable=search_var,
             height=35
         )
         search_entry.pack(fill="x", padx=20, pady=15)
 
-        # Área de Resultados com Rolagem
+        # Scrollable Results Area
         results_frame = ctk.CTkScrollableFrame(popup)
         results_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-        # Feedback de carregamento
-        loading_lbl = ctk.CTkLabel(results_frame, text=self.i18n[self.current_lang].get("loading_chats", "Buscando..."))
+        # Loading feedback
+        loading_lbl = ctk.CTkLabel(results_frame, text=self.i18n[self.current_lang].get("loading_chats", "Searching..."))
         loading_lbl.pack(pady=20)
 
         all_dialogs = []
 
         def select_chat(chat_id):
-            """Quando o usuário clica em 'Selecionar', joga o ID na caixa e fecha o popup"""
+            """When the user clicks 'Select', puts the ID in the box and closes the popup"""
             self.source_entry.delete(0, "end")
             self.source_entry.insert(0, str(chat_id))
             popup.grab_release()
             popup.destroy()
 
         def update_list(*args):
-            """Filtra a lista em tempo real toda vez que o usuário digita uma letra"""
+            """Filters the list in real-time every time the user types a letter"""
             query = search_var.get().lower()
             
-            # Limpa os resultados antigos da tela
+            # Clear old results from screen
             for widget in results_frame.winfo_children():
                 widget.destroy()
             
             count = 0
             for d in all_dialogs:
                 if query in d['name'].lower() or query in str(d['id']):
-                    if count > 50:  # Limita a 50 resultados para a UI não travar se o cara tiver 5 mil grupos
+                    if count > 50:  # Limit to 50 results so the UI doesn't hang if the user has 5,000 groups
                         break
                     
                     row = ctk.CTkFrame(results_frame, fg_color="transparent")
@@ -583,7 +583,7 @@ class App(ctk.CTk):
                     
                     btn = ctk.CTkButton(
                         row, 
-                        text=self.i18n[self.current_lang].get("btn_select", "Selecionar"), 
+                        text=self.i18n[self.current_lang].get("btn_select", "Select"), 
                         width=70, 
                         command=lambda cid=d['id']: select_chat(cid)
                     )
@@ -595,22 +595,22 @@ class App(ctk.CTk):
                     count += 1
 
         def fetch_data():
-            """Busca os diálogos no Telegram em uma thread separada para não congelar a UI"""
+            """Fetches Telegram dialogs in a separate thread to not freeze the UI"""
             try:
                 future = self.engine.run_coro(self.engine.get_dialogs(timeout_sec=20))
                 nonlocal all_dialogs
                 all_dialogs = future.result()
                 
-                # Apaga o texto de "Carregando" e mostra a lista
+                # Clear the "Loading" text and show the list
                 self.after(0, lambda: loading_lbl.destroy() if loading_lbl.winfo_exists() else None)
                 self.after(0, update_list)
             except Exception as e:
-                self.after(0, lambda: loading_lbl.configure(text=f"Erro: {e}"))
+                self.after(0, lambda: loading_lbl.configure(text=f"Error: {e}"))
 
-        # Inicia a busca invisível no fundo
+        # Start background search
         threading.Thread(target=fetch_data, daemon=True).start()
         
-        # Liga a barra de pesquisa à função de filtrar a lista
+        # Bind the search bar to the list filtering function
         search_var.trace_add("write", update_list)
 
     def toggle_bot(self):
