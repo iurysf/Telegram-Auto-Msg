@@ -2,6 +2,8 @@ import asyncio
 import threading
 import logging
 from telethon import TelegramClient, events, errors
+from telethon.tl.types import MessageMediaWebPage
+
 import time
 
 import random
@@ -51,7 +53,7 @@ class TelegramEngine:
         except errors.SessionPasswordNeededError:
             return "NEED_2FA"
         except Exception as e:
-            self.logger.error(f"Login error: {e}")
+            self.logger.error(f"❌ Erro de login: {e}")
             return str(e)
 
     def _resolve_id(self, entity_id):
@@ -71,7 +73,7 @@ class TelegramEngine:
         try:
             return await asyncio.wait_for(self._get_last_message_internal(source_id), timeout=timeout_sec)
         except asyncio.TimeoutError:
-            self.logger.warning(f"Timeout while fetching message from source {source_id}.")
+            self.logger.warning(f"⏳ Tempo esgotado ao buscar mensagem da fonte {source_id}.")
             return None
 
     async def _get_last_message_internal(self, source_id):
@@ -80,7 +82,7 @@ class TelegramEngine:
             if messages:
                 return messages[0]
         except Exception as e:
-            self.logger.error(f"Error fetching message from {source_id}: {e}")
+            self.logger.error(f"❌ Erro ao buscar mensagem de {source_id}: {e}")
         return None
 
     async def _mutate_message(self, text):
@@ -98,54 +100,82 @@ class TelegramEngine:
         return f"{text}{trailing_spaces}{suffix}"
 
     async def send_broadcast(self, message, target_ids):
-        # 1. Prepare Media (if any) to avoid redundant uploads
+        # 1. Secure media caching
         reusable_media = None
-        if message.media:
+        if message.media and not isinstance(message.media, MessageMediaWebPage):
             try:
                 # Send to 'me' (Saved Messages) first to get a stable cloud reference
-                # We use the raw media to ensure we have a "cache" on the server
                 sent_to_me = await self.client.send_message('me', file=message.media)
                 reusable_media = sent_to_me.media
-                self.logger.info("Media 'cached' in Saved Messages for faster broadcasting.")
+                self.logger.info("✅ Mídia armazenada no cache (Mensagens Salvas) com sucesso.")
             except Exception as e:
-                self.logger.error(f"Error caching media: {e}")
-                # Fallback to original media if caching fails
+                self.logger.error(f"⚠️ Erro ao fazer cache da mídia: {e}")
+                # Fallback: try to use the original media if caching fails
                 reusable_media = message.media
 
-        # Store original text to reset or reuse correctly in loop
-        original_text = message.text or ""
+        text = message.text or ""
 
-        for raw_target in target_ids:
-            target = self._resolve_id(raw_target)
+        # 2. Isolated logic for each target (Task)
+        async def send_to_single_target(target):
             try:
-                # Update message.text directly. Telethon recalculates entities 
-                # internally when this property is set.
-                message.text = await self._mutate_message(original_text)
-
+                # ISOLATED MUTATION: Ensures unique hash for each group
+                mutated_text = await self._mutate_message(text)
+                
+                # INDEPENDENT DELAY: Bot mimicry at different times
+                delay = random.uniform(2, 12)
+                await asyncio.sleep(delay)
+                
+                # SENDING
                 if reusable_media:
-                    # Send message using the updated .text property
                     await self.client.send_message(
                         target, 
-                        message.text, 
-                        file=reusable_media
+                        mutated_text, 
+                        file=reusable_media,
+                        formatting_entities=message.entities
                     )
                 else:
-                    # Send plain text
                     await self.client.send_message(
                         target, 
-                        message.text
+                        mutated_text,
+                        formatting_entities=message.entities
                     )
                 
-                # Anti-ban random delay (Human-like behavior)
-                delay = random.uniform(5, 20)
-                self.logger.info(f"Sent msg to {target}. Delaying {delay:.1f}s...")
-                await asyncio.sleep(delay) 
+                self.logger.info(f"🚀 Mensagem enviada com sucesso para {target}.")
                 
             except errors.FloodWaitError as e:
-                self.logger.warning(f"Flood wait: {e.seconds}s")
-                await asyncio.sleep(e.seconds)
+                # Trata o erro: "A wait of 3306 seconds is required..."
+                if e.seconds > 120:
+                    self.logger.warning(f"⏳ [Modo Lento] O grupo {target} exige espera de {e.seconds}s. Mensagem ignorada neste ciclo.")
+                else:
+                    self.logger.warning(f"🛑 [Anti-Spam] O Telegram pediu uma pausa rápida de {e.seconds}s no grupo {target}.")
+                    
+            except (errors.ChatWriteForbiddenError, errors.ChatAdminRequiredError):
+                # Trata o erro: "You can't write in this chat"
+                self.logger.error(f"🔇 [Mutado/Restrito] Sem permissão no grupo {target} (Apenas Admins podem postar ou você levou mute).")
+                
+            except ValueError:
+                # Trata o erro: "An invalid Peer was used..."
+                self.logger.error(f"❌ [ID Inválido] O destino {target} não é reconhecido. (Pode ser um chat privado ou bot).")
+                
             except Exception as e:
-                self.logger.error(f"Error sending to {target}: {e}")
+                # Filtro de segurança (Fallback) caso o Telethon retorne o erro em formato de string genérica
+                error_msg = str(e).lower()
+                
+                if "restricted" in error_msg or "can't write" in error_msg:
+                    self.logger.error(f"🔇 [Mutado/Restrito] O grupo {target} está fechado para envios no momento.")
+                elif "invalid peer" in error_msg:
+                    self.logger.error(f"❌ [ID Inválido] O destino {target} não é um grupo/canal reconhecido pela sua conta.")
+                else:
+                    self.logger.error(f"⚠️ [Erro Desconhecido] Falha ao enviar para {target}: {str(e)}")
+
+        # 3. Concurrent Dispatch (Fan-out)
+        tasks = []
+        for raw_target in target_ids:
+            target = self._resolve_id(raw_target)
+            tasks.append(asyncio.create_task(send_to_single_target(target)))
+            
+        # 4. Wait for all sends to complete the lifecycle
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     async def logout(self):
         """Disconnect and delete the session file on server side"""
@@ -176,7 +206,7 @@ class TelegramEngine:
         try:
             return await asyncio.wait_for(self._get_dialogs_internal(limit), timeout=timeout_sec)
         except asyncio.TimeoutError:
-            self.logger.error("Timeout while fetching groups!")
+            self.logger.error("⏳ Tempo esgotado ao buscar grupos!")
             return []
 
     async def _get_dialogs_internal(self, limit):
@@ -195,7 +225,7 @@ class TelegramEngine:
                     })
             return dialogs
         except Exception as e:
-            self.logger.error(f"Error fetching dialogs: {e}")
+            self.logger.error(f"❌ Erro ao buscar diálogos: {e}")
             return []
 
     def run_coro(self, coro):

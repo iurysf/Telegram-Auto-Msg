@@ -391,10 +391,10 @@ class App(ctk.CTk):
         phone = self.phone_entry.get()
         
         if not api_id or not api_hash or not phone:
-            self.log("Error: API ID, Hash and Phone are required.")
+            self.log(self.i18n[self.current_lang]["log_req_fields"])
             return
 
-        self.log("Connecting...")
+        self.log(self.i18n[self.current_lang]["log_connecting"])
         future = self.engine.run_coro(self.engine.connect(api_id, api_hash, phone))
         
         def check():
@@ -418,10 +418,10 @@ class App(ctk.CTk):
 
     def handle_fetch_chats(self):
         if not self.engine.is_connected:
-            self.log("Error: Connect to Telegram first!")
+            self.log(self.i18n[self.current_lang]["log_connect_first"])
             return
             
-        self.log("Fetching groups and channels...")
+        self.log(self.i18n[self.current_lang]["log_fetching"])
         future = self.engine.run_coro(self.engine.get_dialogs())
         
         def check():
@@ -429,7 +429,7 @@ class App(ctk.CTk):
                 # Timeout is now handled inside the engine via asyncio.wait_for
                 dialogs = future.result() 
                 if not dialogs:
-                    self.log("No groups found or connection timeout.")
+                    self.log(self.i18n[self.current_lang]["log_no_chats"])
                     return
                     
                 self.log(f"Found {len(dialogs)} chats. Adding to selector...")
@@ -437,7 +437,7 @@ class App(ctk.CTk):
                     # Use after to update UI safely from thread
                     self.after(10, lambda name=d['name'], id=d['id']: self.add_group_row(id, name))
             except Exception as e:
-                self.log(f"Fetch chats error: {e}")
+                self.log(self.i18n[self.current_lang]["log_error"].format(e=e))
             
         threading.Thread(target=check, daemon=True).start()
 
@@ -459,10 +459,10 @@ class App(ctk.CTk):
                 )
                 self.start_btn.configure(state="disabled")
         except Exception as e:
-            self.log(f"Disconnect error: {e}")
+            self.log(self.i18n[self.current_lang]["log_error"].format(e=e))
 
     def ask_code(self):
-        dialog = ctk.CTkInputDialog(text=self.i18n[self.current_lang]["dialog_sms"], title="Verification")
+        dialog = ctk.CTkInputDialog(text=self.i18n[self.current_lang]["dialog_sms"], title=self.i18n[self.current_lang]["diag_sms_title"])
         code = dialog.get_input()
         if code:
             self.log(self.i18n[self.current_lang]["log_verifying_code"])
@@ -491,7 +491,7 @@ class App(ctk.CTk):
             threading.Thread(target=check_login, daemon=True).start()
 
     def ask_2fa(self):
-        dialog = ctk.CTkInputDialog(text=self.i18n[self.current_lang]["dialog_2fa"], title="Two-Step Verification")
+        dialog = ctk.CTkInputDialog(text=self.i18n[self.current_lang]["dialog_2fa"], title=self.i18n[self.current_lang]["diag_pw_title"])
         pw = dialog.get_input()
         if pw:
             self.log(self.i18n[self.current_lang]["log_verifying_2fa"])
@@ -520,7 +520,7 @@ class App(ctk.CTk):
     def open_source_search(self):
         """Opens a modal window to search and select the source chat."""
         if not self.engine.is_connected:
-            self.log("Error: Connect to Telegram first to fetch chats.")
+            self.log(self.i18n[self.current_lang]["err_fetch_source"])
             return
 
         # Creation of the blocking secondary window
@@ -636,7 +636,7 @@ class App(ctk.CTk):
                     targets.append(gid)
 
         if not targets:
-            self.log("Error: No target groups selected!")
+            self.log(self.i18n[self.current_lang]["log_no_targets"])
             self.toggle_bot() # Stop
             return
 
@@ -677,7 +677,7 @@ class App(ctk.CTk):
                 else:
                     self.log(f"No messages found in {source} (or timeout occurred).")
             except Exception as e:
-                self.log(f"Loop Error: {e}")
+                self.log(self.i18n[self.current_lang]["log_error"].format(e=e))
                 # Wait a bit longer on error to prevent rapid-fire errors
                 time.sleep(5)
             
@@ -744,7 +744,7 @@ class App(ctk.CTk):
                     if api_id and api_hash:
                         self.try_auto_connect(api_id, api_hash)
             except Exception as e:
-                print(f"Load config error: {e}")
+                print(f"Erro ao carregar config: {e}")
 
     def try_auto_connect(self, api_id, api_hash):
         """Verify in background if .session is still valid"""
@@ -766,7 +766,7 @@ class App(ctk.CTk):
                         text=self.i18n[self.current_lang]["btn_start"]
                     ))
             except Exception as e:
-                self.log(f"Auto-connect failed: {e}")
+                self.log(self.i18n[self.current_lang]["log_error"].format(e=e))
         
         threading.Thread(target=check, daemon=True).start()
 

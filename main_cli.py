@@ -27,6 +27,57 @@ console = Console()
 engine = TelegramEngine()
 CONFIG_FILE = "config.json"
 
+# --- Localization Infrastructure ---
+current_lang = "pt"
+i18n = {}
+
+def resource_path(relative_path):
+    """ Returns the absolute path of the file, whether running in Python or the compiled .exe """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+def load_locales():
+    """Load language dictionary from locales.json"""
+    loc_path = resource_path("locales.json")
+    if os.path.exists(loc_path):
+        try:
+            with open(loc_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading locales.json: {e}")
+    
+    # Basic fallback
+    return {
+        "en": {"log_ready": "Ready.", "cli_header_sub": "Premium Interface"},
+        "pt": {"log_ready": "Pronto.", "cli_header_sub": "Interface Premium"}
+    }
+
+async def choose_language_wizard():
+    global current_lang
+    clear_screen()
+    console.print(Panel.fit(
+        "[bold cyan]Select your language / Escolha seu idioma[/bold cyan]",
+        border_style="cyan"
+    ))
+    console.print("\n1. English")
+    console.print("2. Português (Brasil)\n")
+    
+    choice = Prompt.ask("Choice / Escolha", choices=["1", "2"])
+    current_lang = "en" if choice == "1" else "pt"
+    
+    config = load_config()
+    config["language"] = current_lang
+    save_config(config)
+    
+    console.print(f"\n[green]Ready! / Pronto! ({current_lang})[/green]")
+    time.sleep(1)
+
+# Initialize I18N
+i18n = load_locales()
+
 class CliLoggerHandler(logging.Handler):
     """Custom handler to suppress/show logs depending on the current screen."""
     def __init__(self):
@@ -75,37 +126,37 @@ def show_header():
     clear_screen()
     console.print(Panel.fit(
         "[bold green]Auto-Telegram Bot CLI[/bold green]\n"
-        "[dim]Premium Interface[/dim]",
+        f"[dim]{i18n[current_lang]['cli_header_sub']}[/dim]",
         border_style="green"
     ))
 
 async def setup_wizard():
     show_header()
-    console.print("[yellow]Iniciando Assistente de Configuração...[/yellow]\n")
+    console.print(f"[yellow]{i18n[current_lang]['cli_wizard_start']}[/yellow]\n")
     
-    api_id = Prompt.ask("Digite seu API ID")
-    api_hash = Prompt.ask("Digite seu API Hash")
-    phone = Prompt.ask("Digite seu Telefone (ex: 5522999999999)")
+    api_id = Prompt.ask(i18n[current_lang]["cli_api_id_prompt"])
+    api_hash = Prompt.ask(i18n[current_lang]["cli_api_hash_prompt"])
+    phone = Prompt.ask(i18n[current_lang]["cli_phone_prompt"])
 
-    console.print("\n[cyan]Conectando ao Telegram...[/cyan]")
+    console.print(f"\n[cyan]{i18n[current_lang]['cli_connecting']}[/cyan]")
     # We run this coro in the engine loop
     future = engine.run_coro(engine.connect(api_id, api_hash, phone))
     result = await asyncio.wrap_future(future)
     
     if result == "NEED_CODE":
-        code = Prompt.ask("[bold yellow]Digite o código SMS recebido[/bold yellow]")
+        code = Prompt.ask(f"[bold yellow]{i18n[current_lang]['cli_sms_prompt']}[/bold yellow]")
         # Login
         future = engine.run_coro(engine.login(code))
         login_result = await asyncio.wrap_future(future)
         
         if login_result == "NEED_2FA":
-            password = Prompt.ask("Digite sua senha de Verificação em 2 Etapas", password=True)
+            password = Prompt.ask(i18n[current_lang]["cli_2fa_prompt"], password=True)
             future = engine.run_coro(engine.login(code, password))
             login_result = await asyncio.wrap_future(future)
         
         if login_result != "SUCCESS":
-            console.print(f"[bold red]Erro no login: {login_result}[/bold red]")
-            Prompt.ask("\nPressione ENTER para tentar novamente")
+            console.print(f"[bold red]{i18n[current_lang]['cli_login_error'].format(res=login_result)}[/bold red]")
+            Prompt.ask(f"\n{i18n[current_lang]['cli_login_retry']}")
             return False
 
     # Save to config
@@ -116,50 +167,50 @@ async def setup_wizard():
         "phone": phone
     })
     save_config(config)
-    console.print("\n[bold green]Configuração salva com sucesso![/bold green]")
+    console.print(f"\n[bold green]{i18n[current_lang]['cli_config_saved']}[/bold green]")
     time.sleep(2)
     return True
 
 async def list_groups():
     show_header()
-    console.print("[yellow]Buscando grupos e chats...[/yellow]")
+    console.print(f"[yellow]{i18n[current_lang]['cli_fetching_chats']}[/yellow]")
     
     future = engine.run_coro(engine.get_dialogs())
     dialogs = await asyncio.wrap_future(future)
     
-    table = Table(title="Seus Grupos e IDs")
-    table.add_column("Nome", style="cyan")
-    table.add_column("ID", style="magenta")
+    table = Table(title=i18n[current_lang]["cli_table_chats_title"])
+    table.add_column(i18n[current_lang]["cli_table_col_name"], style="cyan")
+    table.add_column(i18n[current_lang]["cli_table_col_id"], style="magenta")
     
     for d in dialogs:
         table.add_row(d["name"], str(d["id"]))
     
     console.print(table)
-    Prompt.ask("\nPressione ENTER para voltar ao menu")
+    Prompt.ask(f"\n{i18n[current_lang]['cli_press_enter_back']}")
 
 async def save_new_groups():
     show_header()
-    console.print("[yellow]Buscando seus Top 100 Diálogos...[/yellow]")
+    console.print(f"[yellow]{i18n[current_lang]['cli_fetching_top_100']}[/yellow]")
     
     future = engine.run_coro(engine.get_dialogs(limit=100))
     dialogs = await asyncio.wrap_future(future)
     
     if not dialogs:
-        console.print("[red]Nenhum grupo encontrado ou erro na conexão.[/red]")
-        Prompt.ask("\nPressione ENTER para voltar")
+        console.print(f"[red]{i18n[current_lang]['cli_no_chats']}[/red]")
+        Prompt.ask(f"\n{i18n[current_lang]['cli_press_enter_back']}")
         return
 
-    table = Table(title="Top 100 Diálogos")
+    table = Table(title=i18n[current_lang]["cli_table_top_100_title"])
     table.add_column("#", style="bold yellow")
-    table.add_column("Nome", style="cyan")
-    table.add_column("ID", style="magenta")
+    table.add_column(i18n[current_lang]["cli_table_col_name"], style="cyan")
+    table.add_column(i18n[current_lang]["cli_table_col_id"], style="magenta")
     
     for i, d in enumerate(dialogs, 1):
         table.add_row(str(i), d["name"], str(d["id"]))
     
     console.print(table)
     
-    indices_str = Prompt.ask("\nDigite os números dos grupos que deseja salvar (separados por vírgula)")
+    indices_str = Prompt.ask(f"\n{i18n[current_lang]['cli_prompt_select_indices']}")
     try:
         selected_indices = [int(idx.strip()) for idx in indices_str.split(",") if idx.strip()]
         
@@ -178,10 +229,10 @@ async def save_new_groups():
                 count += 1
         
         save_config(config)
-        console.print(f"\n[bold green]Sucesso! {count} grupos foram salvos vinculados à sua conta.[/bold green]")
+        console.print(f"\n[bold green]{i18n[current_lang]['cli_save_success'].format(n=count)}[/bold green]")
         time.sleep(2)
     except ValueError:
-        console.print("[red]Erro: Digite apenas números separados por vírgula.[/red]")
+        console.print(f"[red]{i18n[current_lang]['cli_error_numbers_only']}[/red]")
         time.sleep(2)
 
 async def view_saved_groups():
@@ -190,16 +241,16 @@ async def view_saved_groups():
     saved_groups = config.get("groups", {})
     
     if not saved_groups:
-        console.print("[yellow]Você ainda não salvou nenhum grupo.[/yellow]")
-        Prompt.ask("\nPressione ENTER para voltar")
+        console.print(f"[yellow]{i18n[current_lang]['cli_no_saved_groups']}[/yellow]")
+        Prompt.ask(f"\n{i18n[current_lang]['cli_press_enter_back']}")
         return
 
-    table = Table(title="Grupos Salvos no config.json")
-    table.add_column("Nome", style="cyan")
-    table.add_column("ID", style="magenta")
+    table = Table(title=i18n[current_lang]["cli_table_saved_title"])
+    table.add_column(i18n[current_lang]["cli_table_col_name"], style="cyan")
+    table.add_column(i18n[current_lang]["cli_table_col_id"], style="magenta")
     
     for gid, info in saved_groups.items():
-        table.add_row(info.get("name", "Unknown"), gid)
+        table.add_row(info.get("name", i18n[current_lang]["cli_unknown"]), gid)
     
     console.print(table)
     Prompt.ask("\nPressione ENTER para voltar")
@@ -207,19 +258,19 @@ async def view_saved_groups():
 async def manage_groups():
     while True:
         show_header()
-        console.print("[bold yellow]📂 Gerenciar Grupos Alvo[/bold yellow]\n")
+        console.print(f"[bold yellow]{i18n[current_lang]['cli_manage_title']}[/bold yellow]\n")
         
         table = Table(show_header=False, box=None)
         table.add_column("Opção", style="bold cyan")
         table.add_column("Descrição")
         
-        table.add_row("1", "📥 Salvar novos grupos (Top 100)")
-        table.add_row("2", "📋 Ver grupos salvos")
-        table.add_row("3", "⬅️ Voltar")
+        table.add_row("1", i18n[current_lang]["cli_menu_save_new"])
+        table.add_row("2", i18n[current_lang]["cli_menu_view_saved"])
+        table.add_row("3", i18n[current_lang]["cli_menu_back"])
         
         console.print(table)
         
-        choice = Prompt.ask("\nEscolha uma opção", choices=["1", "2", "3"])
+        choice = Prompt.ask(f"\n{i18n[current_lang]['cli_choice_prompt']}", choices=["1", "2", "3"])
         
         if choice == "1":
             await save_new_groups()
@@ -238,7 +289,7 @@ async def run_broadcaster(headless=False):
         interval_val = int(cli_defaults.get("interval", 60))
         
         if not source_id or not dest_ids_str:
-            console.print("[red]Erro: Configurações de CLI ausentes no config.json para modo headless.[/red]")
+            console.print(f"[red]{i18n[current_lang]['cli_headless_error']}[/red]")
             sys.exit(1)
     else:
         show_header()
@@ -247,15 +298,15 @@ async def run_broadcaster(headless=False):
         saved_groups = config.get("groups", {})
         
         if not saved_groups:
-            console.print("[yellow]Aviso: Nenhum grupo salvo encontrado no config.json.[/yellow]")
-            console.print("[cyan]Vá em 'Gerenciar Grupos Alvo' para salvar os grupos primeiro.[/cyan]")
-            dest_ids_str = Prompt.ask("\nOu digite os IDs de Destino manualmente agora (separados por vírgula)", default=cli_defaults.get("destination_ids", ""))
+            console.print(f"[yellow]{i18n[current_lang]['cli_warning_no_groups']}[/yellow]")
+            console.print(f"[cyan]{i18n[current_lang]['cli_instruction_manage']}[/cyan]")
+            dest_ids_str = Prompt.ask(f"\n{i18n[current_lang]['cli_manual_dest_prompt']}", default=cli_defaults.get("destination_ids", ""))
         else:
             dest_ids_str = ",".join(saved_groups.keys())
-            console.print(f"[green]Utilizando {len(saved_groups)} grupos salvos automaticamente.[/green]")
+            console.print(f"[green]{i18n[current_lang]['cli_auto_dest_msg'].format(n=len(saved_groups))}[/green]")
 
-        source_id = Prompt.ask("ID do Grupo Fonte", default=str(cli_defaults.get("source_id", "")))
-        interval_val = int(Prompt.ask("Intervalo (segundos)", default=str(cli_defaults.get("interval", 60))))
+        source_id = Prompt.ask(i18n[current_lang]["cli_source_id_prompt"], default=str(cli_defaults.get("source_id", "")))
+        interval_val = int(Prompt.ask(i18n[current_lang]["cli_interval_prompt"], default=str(cli_defaults.get("interval", 60))))
         
         # Save defaults
         config["cli_defaults"] = {
@@ -267,15 +318,15 @@ async def run_broadcaster(headless=False):
 
     dest_ids = [did.strip() for did in dest_ids_str.split(",") if did.strip()]
     if not dest_ids:
-        console.print("[red]Erro: Nenhum grupo de destino configurado.[/red]")
+        console.print(f"[red]{i18n[current_lang]['cli_error_no_dest']}[/red]")
         time.sleep(2)
         return
     
     if not headless:
         show_header()
-        console.print(f"[bold green]Bot Iniciado![/bold green]")
-        console.print(f"Fonte: [cyan]{source_id}[/cyan] | Destinos: [cyan]{len(dest_ids)} grupos[/cyan] | Intervalo: [cyan]{interval_val}s[/cyan]")
-        console.print("[dim]Pressione Ctrl+C para parar e voltar ao menu[/dim]\n")
+        console.print(f"[bold green]{i18n[current_lang]['cli_bot_started_status']}[/bold green]")
+        console.print(i18n[current_lang]["cli_status_bar"].format(src=source_id, dst=len(dest_ids), int=interval_val))
+        console.print(f"[dim]{i18n[current_lang]['cli_stop_hint']}[/dim]\n")
         console.print("-" * 50)
 
     cli_handler.show_logs = True
@@ -308,110 +359,117 @@ async def run_broadcaster(headless=False):
         engine.is_running = False
         cli_handler.show_logs = False
         if not headless:
-            console.print("\n[yellow]Broadcaster parado.[/yellow]")
+            console.print(f"\n[yellow]{i18n[current_lang]['cli_broadcaster_stopped']}[/yellow]")
             time.sleep(2)
 
-async def reset_app():
+async def reset_settings():
     show_header()
-    if Confirm.ask("[bold red]ATENÇÃO: Isso apagará todas as configurações e a sessão. Continuar?[/bold red]"):
-        try:
-            # RELEASE LOCK FIRST
-            console.print("[cyan]Desconectando e liberando arquivos...[/cyan]")
-            future = engine.run_coro(engine.disconnect())
-            await asyncio.wrap_future(future)
+    if not Confirm.ask(f"[bold red]{i18n[current_lang]['cli_reset_warning']}[/bold red]"):
+        return
+    
+    try:
+        # RELEASE LOCK FIRST
+        console.print(f"[cyan]{i18n[current_lang]['cli_reset_disconnecting']}[/cyan]")
+        future = engine.run_coro(engine.disconnect())
+        await asyncio.wrap_future(future)
+        
+        # Delay para o Windows 
+        await asyncio.sleep(1)
+        
+        if os.path.exists(CONFIG_FILE):
+            os.remove(CONFIG_FILE)
             
-            # Delay para o Windows 
-            await asyncio.sleep(1)
-            
-            if os.path.exists(CONFIG_FILE):
-                os.remove(CONFIG_FILE)
-                
-            for f in os.listdir("."):
-                if f.endswith(".session") or f.endswith(".session-journal"):
-                    for _ in range(3): # Tentativas para lock do Windows
-                        try:
-                            os.remove(f)
-                            break
-                        except Exception:
-                            time.sleep(1)
-            
-            console.print("[green]Reset concluído com sucesso![/green]")
-            console.print("\n[bold yellow]IMPORTANTE: No Windows, recomendamos reiniciar o script manualmente.[/bold yellow]")
-            console.print("[bold cyan]Por favor, execute: py main_cli.py[/bold cyan]")
-            sys.exit(0)
-        except Exception as e:
-            console.print(f"[red]Erro ao resetar: {e}[/red]")
-            Prompt.ask("Pressione ENTER para voltar")
+        for f in os.listdir("."):
+            if f.endswith(".session") or f.endswith(".session-journal"):
+                for _ in range(3): # Tentativas para lock do Windows
+                    try:
+                        os.remove(f)
+                        break
+                    except Exception:
+                        time.sleep(1)
+        
+        console.print(f"[bold green]{i18n[current_lang]['cli_reset_success']}[/bold green]")
+        
+        if os.name == 'nt':
+            console.print(f"\n[cyan]{i18n[current_lang]['cli_reset_windows_hint']}[/cyan]")
+            console.print(f"[bold yellow]{i18n[current_lang]['cli_reset_run_cmd']}[/bold yellow]")
+        sys.exit(0)
+    except Exception as e:
+        console.print(f"[red]{i18n[current_lang]['cli_reset_error'].format(e=e)}[/red]")
+        return
 
 async def main_menu():
     while True:
         show_header()
+        
         table = Table(show_header=False, box=None)
         table.add_column("Opção", style="bold cyan")
         table.add_column("Descrição")
         
-        table.add_row("1", "🚀 Iniciar Broadcaster (Clonagem)")
-        table.add_row("2", "📂 Gerenciar Grupos Alvo")
-        table.add_row("3", "🔄 Resetar Configurações")
-        table.add_row("4", "❌ Sair")
+        table.add_row("1", i18n[current_lang]["cli_main_menu_start"])
+        table.add_row("2", i18n[current_lang]["cli_main_menu_manage"])
+        table.add_row("3", i18n[current_lang]["cli_main_menu_reset"])
+        table.add_row("4", i18n[current_lang]["cli_main_menu_exit"])
         
         console.print(table)
         
-        choice = Prompt.ask("\nEscolha uma opção", choices=["1", "2", "3", "4"])
+        choice = Prompt.ask(f"\n{i18n[current_lang]['cli_choice_prompt']}", choices=["1", "2", "3", "4"])
         
         if choice == "1":
-            await run_broadcaster()
+            await run_broadcaster(headless=False)
         elif choice == "2":
             await manage_groups()
         elif choice == "3":
-            await reset_app()
+            await reset_settings()
         elif choice == "4":
-            console.print("[yellow]Saindo elegantemente...[/yellow]")
-            sys.exit(0)
+            console.print(f"[yellow]{i18n[current_lang]['cli_exiting']}[/yellow]")
+            break
 
 async def run_headless():
     config = load_config()
-    api_id = config.get("api_id")
-    api_hash = config.get("api_hash")
     
-    if not api_id or not api_hash:
-        console.print("[bold red]ERRO FATAL: Credenciais ausentes no config.json.[/bold red]")
-        console.print("Rode o CLI sem --headless uma vez para configurar.")
+    if not config.get("api_id") or not config.get("api_hash") or not config.get("phone"):
+        console.print(f"[bold red]{i18n[current_lang]['cli_headless_error_missing']}[/bold red]")
+        console.print(f"[cyan]{i18n[current_lang]['cli_headless_hint']}[/cyan]")
         sys.exit(1)
-
-    console.print("[cyan]Conectando silenciosamente...[/cyan]")
+    
+    console.print(f"[cyan]{i18n[current_lang]['cli_silent_connect']}[/cyan]")
     try:
-        future = engine.run_coro(engine.check_session(api_id, api_hash))
-        is_logged = await asyncio.wrap_future(future)
-        
-        if not is_logged:
-            console.print("[bold red]ERRO FATAL: Sessão expirada ou inválida.[/bold red]")
-            console.print("Rode o CLI sem --headless para refazer o login.")
+        future = engine.run_coro(engine.check_session(config.get("api_id"), config.get("api_hash")))
+        session_valid = await asyncio.wrap_future(future)
+
+        if not session_valid:
+            console.print(f"[bold red]{i18n[current_lang]['cli_headless_error_session']}[/bold red]")
+            console.print(f"[cyan]{i18n[current_lang]['cli_headless_hint_login']}[/cyan]")
             sys.exit(1)
-            
-        console.print("[bold green]Sessão válida encontrada![/bold green]")
+        
+        console.print(f"[green]{i18n[current_lang]['cli_session_valid']}[/green]")
         
         # Start broadcaster background task
-        broadcaster_task = asyncio.create_task(run_broadcaster(headless=True))
+        await run_broadcaster(headless=True)
         
-        console.print("[green]Bot rodando em background (VPS Mode). Ctrl+C para sair.[/green]")
-        while True:
-            await asyncio.sleep(1)
-            
     except KeyboardInterrupt:
-        console.print("\n[yellow]Encerrando por interrupção do usuário...[/yellow]")
+        console.print(f"\n[yellow]{i18n[current_lang]['cli_interrupt_msg']}[/yellow]")
     except Exception as e:
-        console.print(f"[bold red]Erro inesperado no modo headless: {e}[/bold red]")
+        console.print(f"[bold red]{i18n[current_lang]['cli_fatal_boot'].format(e=e)}[/bold red]")
     finally:
         sys.exit(0)
 
 async def boot():
+    global current_lang
     parser = argparse.ArgumentParser(description="Auto-Telegram CLI")
-    parser.add_argument("--headless", action="store_true", help="Inicia o bot direto em modo background")
+    parser.add_argument("--headless", action="store_true", help="Start the bot directly in background mode")
     args = parser.parse_args()
 
     config = load_config()
     
+    # --- LANGUAGE SELECTION (First boot) ---
+    if "language" not in config:
+        await choose_language_wizard()
+        config = load_config() # Reload with lang
+    else:
+        current_lang = config["language"]
+
     if args.headless:
         await run_headless()
         return
@@ -424,7 +482,7 @@ async def boot():
     else:
         # Silent connect check
         show_header()
-        console.print("[cyan]Verificando sessão...[/cyan]")
+        console.print(f"[cyan]{i18n[current_lang]['cli_verifying_session']}[/cyan]")
         future = engine.run_coro(engine.check_session(config["api_id"], config["api_hash"]))
         try:
             is_logged = await asyncio.wrap_future(future)
@@ -432,9 +490,12 @@ async def boot():
             is_logged = False
         
         if not is_logged:
-            console.print("[yellow]Sessão expirada. Redirecionando para login...[/yellow]")
+            console.print(f"[red]{i18n[current_lang]['cli_session_expired']}[/red]")
             time.sleep(2)
             await setup_wizard()
+        else:
+            console.print(f"[green]{i18n[current_lang]['cli_session_valid']}[/green]")
+            time.sleep(1)
 
     await main_menu()
 
