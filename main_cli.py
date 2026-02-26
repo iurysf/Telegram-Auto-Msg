@@ -6,6 +6,8 @@ import asyncio
 import argparse
 import logging
 from datetime import datetime
+from rich.align import Align
+from rich.text import Text
 
 # Libs for visual quality
 try:
@@ -124,11 +126,38 @@ def clear_screen():
 
 def show_header():
     clear_screen()
-    console.print(Panel.fit(
-        "[bold green]Auto-Telegram Bot CLI[/bold green]\n"
-        f"[dim]{i18n[current_lang]['cli_header_sub']}[/dim]",
-        border_style="green"
+    
+    # ASCII Art do seu nome (Estilo "Standard" em blocos)
+    # Cores neon: ciano (cyan) misturado com detalhes em branco/dim
+    ascii_art = """[bold cyan]
+  ___  _   _  ____ __   __ _____  ____  
+ |_ _|| | | ||  _ \\\\ \\ / /|  ___||  __| 
+  | | | | | || |_) |\\ V / |___ \\ | |_   
+  | | | |_| ||  _ <  | |   ___) ||  _|  
+ |___| \\___/ |_| \\_\\ |_|  |____/ |_|    
+[/bold cyan]"""
+
+    # Formatando o título centralizado
+    title_text = "\n[bold white]⚡ AUTO-TELEGRAM BROADCASTER[/bold white]\n"
+    
+    # Junta tudo em uma única string
+    header_content = f"{ascii_art}\n{title_text}"
+    
+    # O Align.center magicamente centraliza todo o bloco dentro da caixa
+    centered_header = Align.center(header_content)
+    
+    # Criando o painel em volta com estilo hacker (borda verde/ciano)
+    console.print(Panel(
+        centered_header,
+        border_style="bright_cyan", # Borda brilhante
+        padding=(1, 2),             # Respiro dentro da caixa (cima/baixo, esquerda/direita)
+        title="[bold green]● SYSTEM ONLINE[/bold green]", # Bolinha de status na borda superior
+        subtitle="[bold dim]github.com/iurysf[/bold dim]", # Link discreto na borda inferior
+        expand=False                # Faz a caixa abraçar o texto ao invés de ocupar 100% da tela
     ))
+    
+    # Linha em branco para separar o menu
+    console.print()
 
 async def setup_wizard():
     show_header()
@@ -341,12 +370,14 @@ async def run_broadcaster(headless=False):
                 
                 if msg:
                     engine.logger.info(f"Nova mensagem capturada de {source_id}. Enviando...")
+                    cycle_start = time.time()
                     future = engine.run_coro(engine.send_broadcast(msg, dest_ids))
                     await asyncio.wrap_future(future)
+                    cycle_time = round(time.time() - cycle_start, 1)
+                    engine.logger.info(i18n[current_lang]["log_cycle_complete"].format(c=cycle_time, n=interval_val))
                 else:
                     engine.logger.info("Nenhuma mensagem nova encontrada ou erro ao acessar fonte.")
                 
-                engine.logger.info(f"Aguardando {interval_val}s para a próxima verificação...")
                 await asyncio.sleep(interval_val)
             except Exception as e:
                 engine.logger.error(f"Erro no loop do Broadcaster: {e}")

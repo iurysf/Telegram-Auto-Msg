@@ -56,8 +56,6 @@ class App(ctk.CTk):
             print(f"Erro ao carregar ícone: {e}")
         # -----------------------------
         
-        self.after(200, lambda: self.state('zoomed'))
-
         self.engine = TelegramEngine()
         self.group_vars = {} # {id: (checkbox, frame)}
         self._is_closing = False
@@ -79,6 +77,9 @@ class App(ctk.CTk):
         
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.bind("<Unmap>", self.on_minimize)
+
+        # Maximize window after all UI is set up to avoid flicker issues with Toplevels
+        self.after(300, lambda: self.state('zoomed'))
 
     def setup_tray(self):
         """Setup the system tray icon"""
@@ -172,7 +173,7 @@ class App(ctk.CTk):
         popup.geometry(f"+{x}+{y}")
 
         ctk.CTkLabel(popup, text="Welcome! Choose your language:\nBem-vindo! Escolha seu idioma:", 
-                     font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(30, 20))
+                     font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold")).pack(pady=(30, 20))
 
         lang_var = ctk.StringVar(value="Português (Brasil)")
         combo = ctk.CTkOptionMenu(popup, variable=lang_var, values=["English", "Português (Brasil)"], width=250, height=35)
@@ -186,7 +187,7 @@ class App(ctk.CTk):
             self.deiconify() 
             self.after(200, lambda: self.state('zoomed'))
 
-        btn = ctk.CTkButton(popup, text="Continue / Continuar", command=save_and_continue, height=40)
+        btn = ctk.CTkButton(popup, text="Continue / Continuar", command=save_and_continue, height=40, font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"))
         btn.pack(pady=(20, 0))
         popup.protocol("WM_DELETE_WINDOW", lambda: None)
         self.wait_window(popup)
@@ -204,17 +205,39 @@ class App(ctk.CTk):
         # Sidebar Title
         self.logo_label = ctk.CTkLabel(
             self.sidebar, text=self.i18n[self.current_lang]["sidebar_title"], 
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold")
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 10))
+        
+        # Status Indicator in Sidebar
+        self.status_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.status_frame.grid(row=1, column=0, padx=20, pady=(0, 10))
 
-        # Sidebar Button
+        self.status_dot = ctk.CTkLabel(self.status_frame, text="●", text_color="#e03131", font=ctk.CTkFont(family="Segoe UI", size=18))
+        self.status_dot.pack(side="left")
+
+        self.status_label = ctk.CTkLabel(self.status_frame, text=self.i18n[self.current_lang]["gui_status_disconnected"], text_color="gray", font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.status_label.pack(side="left", padx=5)
+
+        # Move Fetch Button to row 2
         self.fetch_chats_btn = ctk.CTkButton(
             self.sidebar, text=self.i18n[self.current_lang]["btn_fetch"], 
-            height=40, font=ctk.CTkFont(weight="bold"),
+            height=40, font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
             command=self.handle_fetch_chats
         )
-        self.fetch_chats_btn.grid(row=1, column=0, padx=20, pady=20)
+        self.fetch_chats_btn.grid(row=2, column=0, padx=20, pady=(20, 10))
+        self.create_tooltip(self.fetch_chats_btn, self.i18n[self.current_lang]["tooltip_fetch"])
+        
+        # Container to prevent layout shift
+        self.progress_container = ctk.CTkFrame(self.sidebar, fg_color="transparent", height=10)
+        self.progress_container.grid(row=3, column=0, padx=20, sticky="ew")
+        self.progress_container.grid_propagate(False) # Fixed height
+        
+        self.fetch_progress = ctk.CTkProgressBar(self.progress_container, mode="indeterminate", height=4, width=160)
+        self.fetch_progress.pack(pady=3)
+        self.fetch_progress.set(0)
+        self.fetch_progress.stop()
+        self.progress_container.grid_remove() # Hide container by default
         
         # Sidebar Footer Credits
         self.credits_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -228,7 +251,7 @@ class App(ctk.CTk):
             text="github.com/iurysf", 
             text_color="#1864ab", 
             cursor="hand2",
-            font=ctk.CTkFont(size=12, underline=True)
+            font=ctk.CTkFont(family="Segoe UI", size=12, underline=True)
         )
         self.github_link.pack()
         self.github_link.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/iurysf"))
@@ -260,7 +283,7 @@ class App(ctk.CTk):
         self.api_card = ctk.CTkFrame(self.header_frame, corner_radius=15)
         self.api_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         
-        ctk.CTkLabel(self.api_card, text=self.i18n[self.current_lang]["card_api"], font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 5))
+        ctk.CTkLabel(self.api_card, text=self.i18n[self.current_lang]["card_api"], font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold")).pack(pady=(15, 5))
         self.api_id_entry = self.add_input(self.api_card, self.i18n[self.current_lang]["api_id"], self.i18n[self.current_lang]["placeholder_id"])
         self.api_hash_entry = self.add_input(self.api_card, self.i18n[self.current_lang]["api_hash"], self.i18n[self.current_lang]["placeholder_hash"])
         self.phone_entry = self.add_input(self.api_card, self.i18n[self.current_lang]["phone"], "+55 11 99999-9999")
@@ -269,18 +292,19 @@ class App(ctk.CTk):
         self.settings_card = ctk.CTkFrame(self.header_frame, corner_radius=15)
         self.settings_card.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
         
-        ctk.CTkLabel(self.settings_card, text=self.i18n[self.current_lang]["card_bot"], font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 5))
+        ctk.CTkLabel(self.settings_card, text=self.i18n[self.current_lang]["card_bot"], font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold")).pack(pady=(15, 5))
         # --- CUSTOM SOURCE ENTRY WITH SEARCH BUTTON ---
         source_frame = ctk.CTkFrame(self.settings_card, fg_color="transparent")
         source_frame.pack(fill="x", padx=20, pady=8)
         
-        ctk.CTkLabel(source_frame, text=self.i18n[self.current_lang]["source"], width=110, anchor="w", font=ctk.CTkFont(weight="bold")).pack(side="left")
+        ctk.CTkLabel(source_frame, text=self.i18n[self.current_lang]["source"], width=110, anchor="w", font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold")).pack(side="left")
         
         self.source_entry = ctk.CTkEntry(source_frame, placeholder_text=self.i18n[self.current_lang]["placeholder_source"], border_width=1)
         self.source_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
         
         self.search_src_btn = ctk.CTkButton(source_frame, text="🔍", width=35, fg_color="#4b4b4b", hover_color="#333333", command=self.open_source_search)
         self.search_src_btn.pack(side="right")
+        self.create_tooltip(self.search_src_btn, self.i18n[self.current_lang]["tooltip_search"])
         # -------------------------------------------------
         self.interval_entry = self.add_input(self.settings_card, self.i18n[self.current_lang]["interval"], self.i18n[self.current_lang]["placeholder_interval"], width=80)
 
@@ -289,7 +313,25 @@ class App(ctk.CTk):
         self.targets_card = ctk.CTkFrame(self.main_frame, corner_radius=15)
         self.targets_card.grid(row=1, column=0, sticky="ew", pady=(0, 20))
         
-        ctk.CTkLabel(self.targets_card, text=self.i18n[self.current_lang]["card_targets"], font=ctk.CTkFont(size=16, weight="bold"), anchor="w").pack(fill="x", padx=20, pady=(15, 0))
+        targets_header = ctk.CTkFrame(self.targets_card, fg_color="transparent")
+        targets_header.pack(fill="x", padx=20, pady=(15, 0))
+
+        ctk.CTkLabel(targets_header, text=self.i18n[self.current_lang]["card_targets"], 
+                     font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"), anchor="w").pack(side="left")
+
+        self.targets_counter = ctk.CTkLabel(targets_header, text=self.i18n[self.current_lang]["gui_selected"].format(s=0, t=0), 
+                                             text_color="gray", font=ctk.CTkFont(family="Segoe UI", size=12))
+        self.targets_counter.pack(side="right")
+
+        self.select_all_btn = ctk.CTkButton(
+            targets_header, text=self.i18n[self.current_lang]["gui_select_all"], width=80, height=25,
+            fg_color="#4b4b4b", hover_color="#333333",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            command=self.toggle_select_all
+        )
+        self.select_all_btn.pack(side="right", padx=(0, 10))
+        self.create_tooltip(self.select_all_btn, self.i18n[self.current_lang]["tooltip_select_all"])
+
         self.targets_scroll_frame = ctk.CTkScrollableFrame(self.targets_card, height=160, fg_color="transparent")
         self.targets_scroll_frame.pack(fill="x", padx=10, pady=10)
 
@@ -301,16 +343,18 @@ class App(ctk.CTk):
         self.connect_btn = ctk.CTkButton(
             self.btn_frame, text=self.i18n[self.current_lang]["btn_connect"], 
             height=45, fg_color="#1864ab", hover_color="#124c82", 
-            font=ctk.CTkFont(size=14, weight="bold"), command=self.handle_connect
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), command=self.handle_connect
         )
         self.connect_btn.pack(side="left", padx=(0, 10), expand=True, fill="x")
+        self.create_tooltip(self.connect_btn, self.i18n[self.current_lang]["tooltip_connect"])
 
         self.start_btn = ctk.CTkButton(
             self.btn_frame, text=self.i18n[self.current_lang]["btn_start"], 
             height=45, state="disabled", fg_color="#2b8a3e", hover_color="#206a2f",
-            font=ctk.CTkFont(size=14, weight="bold"), command=self.toggle_bot
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), command=self.toggle_bot
         )
         self.start_btn.pack(side="right", padx=(10, 0), expand=True, fill="x")
+        self.create_tooltip(self.start_btn, self.i18n[self.current_lang]["tooltip_start"])
 
 
         # --- CONSOLE TERMINAL ---
@@ -323,7 +367,7 @@ class App(ctk.CTk):
         self.console = ctk.CTkTextbox(
             self.console_card, fg_color="transparent", 
             text_color="#4AF626", # Terminal green
-            font=ctk.CTkFont(family="Consolas", size=13)
+            font=ctk.CTkFont(family="Cascadia Code", size=13)
         )
         self.console.pack(fill="both", expand=True, padx=15, pady=15)
         self.log(self.i18n[self.current_lang]["log_ready"])
@@ -333,14 +377,14 @@ class App(ctk.CTk):
         f = ctk.CTkFrame(parent, fg_color="transparent")
         f.pack(fill="x", padx=20, pady=8)
         
-        l = ctk.CTkLabel(f, text=label_text, width=110, anchor="w", font=ctk.CTkFont(weight="bold"))
+        l = ctk.CTkLabel(f, text=label_text, width=110, anchor="w", font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         l.pack(side="left")
         
         if width:
-            e = ctk.CTkEntry(f, placeholder_text=placeholder, width=width, border_width=1)
+            e = ctk.CTkEntry(f, placeholder_text=placeholder, width=width, border_width=1, font=ctk.CTkFont(family="Segoe UI", size=13))
             e.pack(side="left")
         else:
-            e = ctk.CTkEntry(f, placeholder_text=placeholder, border_width=1)
+            e = ctk.CTkEntry(f, placeholder_text=placeholder, border_width=1, font=ctk.CTkFont(family="Segoe UI", size=13))
             e.pack(side="right", fill="x", expand=True)
             
         return e
@@ -353,7 +397,7 @@ class App(ctk.CTk):
         row_frame.pack(fill="x", pady=2)
         row_frame.grid_columnconfigure(0, weight=1) # Checkbox expands
 
-        chk = ctk.CTkCheckBox(row_frame, text=f"{group_name} ({group_id})")
+        chk = ctk.CTkCheckBox(row_frame, text=f"{group_name} ({group_id})", command=self.refresh_counter, font=ctk.CTkFont(family="Segoe UI", size=13))
         if is_checked:
             chk.select()
         chk.grid(row=0, column=0, sticky="w", padx=5)
@@ -366,6 +410,8 @@ class App(ctk.CTk):
             command=lambda i=group_id: self.delete_row(i)
         )
         btn_del.grid(row=0, column=1, padx=5, sticky="e")
+        
+        self.refresh_counter()
 
     def delete_row(self, group_id):
         gid = str(group_id)
@@ -373,16 +419,74 @@ class App(ctk.CTk):
             chk, frame = self.group_vars[gid]
             frame.destroy()
             del self.group_vars[gid]
+            self.refresh_counter()
 
     def log(self, msg):
         """Visual logging system with timestamp"""
         # Ensure UI update happens on the Main Thread (Safe)
         def _insert_log():
+            if not self.console.winfo_exists():
+                return
             timestamp = time.strftime('%H:%M:%S')
             self.console.insert("end", f"[{timestamp}] {msg}\n")
             self.console.see("end")
         
         self.after(0, _insert_log)
+
+    def update_status(self, state):
+        """state: 'disconnected', 'connected', 'running'"""
+        if not self.status_dot.winfo_exists() or not self.status_label.winfo_exists():
+            return
+            
+        states = {
+            "disconnected": ("●", "#e03131", self.i18n[self.current_lang]["gui_status_disconnected"]),
+            "connected":    ("●", "#2b8a3e", self.i18n[self.current_lang]["gui_status_connected"]),
+            "running":      ("●", "#4AF626", self.i18n[self.current_lang]["gui_status_running"]),
+        }
+        dot, color, text = states[state]
+        self.status_dot.configure(text=dot, text_color=color)
+        self.status_label.configure(text=text)
+
+    def create_tooltip(self, widget, text):
+        tip_ref = [None]
+        
+        def show(e):
+            if tip_ref[0] is None or not tip_ref[0].winfo_exists():
+                tip = ctk.CTkToplevel(self)
+                tip.withdraw()
+                tip.overrideredirect(True)
+                label = ctk.CTkLabel(tip, text=text, corner_radius=6, fg_color="#2b2b2b", 
+                                     text_color="white", padx=8, pady=4, 
+                                     font=ctk.CTkFont(family="Segoe UI", size=11))
+                label.pack()
+                tip_ref[0] = tip
+            
+            tip_ref[0].geometry(f"+{e.x_root+15}+{e.y_root+15}")
+            tip_ref[0].deiconify()
+            tip_ref[0].attributes("-topmost", True)
+
+        def hide(e):
+            if tip_ref[0] and tip_ref[0].winfo_exists():
+                tip_ref[0].withdraw()
+        
+        widget.bind("<Enter>", show)
+        widget.bind("<Leave>", hide)
+
+    def refresh_counter(self):
+        total = len(self.group_vars)
+        selected = sum(1 for chk, _ in self.group_vars.values() if chk.get() == 1)
+        self.targets_counter.configure(text=self.i18n[self.current_lang]["gui_selected"].format(s=selected, t=total))
+
+    def toggle_select_all(self):
+        if not self.group_vars:
+            return
+        all_selected = all(chk.get() == 1 for chk, _ in self.group_vars.values())
+        for chk, _ in self.group_vars.values():
+            if all_selected:
+                chk.deselect()
+            else:
+                chk.select()
+        self.refresh_counter()
 
     def handle_connect(self):
         self.save_config()
@@ -404,6 +508,7 @@ class App(ctk.CTk):
                     self.after(100, self.ask_code)
                 elif res == "CONNECTED":
                     self.log(self.i18n[self.current_lang]["log_connected"])
+                    self.update_status("connected")
                     self.after(10, lambda: self.connect_btn.configure(
                         text=self.i18n[self.current_lang]["btn_disconnect"], 
                         state="normal", # Allow clicking to disconnect
@@ -421,6 +526,9 @@ class App(ctk.CTk):
             self.log(self.i18n[self.current_lang]["log_connect_first"])
             return
             
+        self.progress_container.grid()
+        self.fetch_progress.start()
+        
         self.log(self.i18n[self.current_lang]["log_fetching"])
         future = self.engine.run_coro(self.engine.get_dialogs())
         
@@ -438,6 +546,9 @@ class App(ctk.CTk):
                     self.after(10, lambda name=d['name'], id=d['id']: self.add_group_row(id, name))
             except Exception as e:
                 self.log(self.i18n[self.current_lang]["log_error"].format(e=e))
+            finally:
+                self.after(0, self.fetch_progress.stop)
+                self.after(0, self.progress_container.grid_remove)
             
         threading.Thread(target=check, daemon=True).start()
 
@@ -450,6 +561,7 @@ class App(ctk.CTk):
         try:
             if future.result():
                 self.log(self.i18n[self.current_lang]["log_disconnected"])
+                self.update_status("disconnected")
                 # Reset UI
                 self.connect_btn.configure(
                     text=self.i18n[self.current_lang]["btn_connect"],
@@ -473,6 +585,7 @@ class App(ctk.CTk):
                     res = future.result(timeout=30)
                     if res == "SUCCESS":
                         self.log(self.i18n[self.current_lang]["log_connected"])
+                        self.update_status("connected")
                         # Configure as Disconnect button
                         self.after(10, lambda: self.connect_btn.configure(
                             text=self.i18n[self.current_lang]["btn_disconnect"], 
@@ -502,6 +615,7 @@ class App(ctk.CTk):
                     res = future.result(timeout=30)
                     if res == "SUCCESS":
                         self.log(self.i18n[self.current_lang]["log_connected"])
+                        self.update_status("connected")
                         # Configure as Disconnect button
                         self.after(10, lambda: self.connect_btn.configure(
                             text=self.i18n[self.current_lang]["btn_disconnect"], 
@@ -543,7 +657,8 @@ class App(ctk.CTk):
             popup, 
             placeholder_text=self.i18n[self.current_lang].get("search_placeholder", "Type name or ID..."), 
             textvariable=search_var,
-            height=35
+            height=35,
+            font=ctk.CTkFont(family="Segoe UI", size=13)
         )
         search_entry.pack(fill="x", padx=20, pady=15)
 
@@ -552,7 +667,7 @@ class App(ctk.CTk):
         results_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         # Loading feedback
-        loading_lbl = ctk.CTkLabel(results_frame, text=self.i18n[self.current_lang].get("loading_chats", "Searching..."))
+        loading_lbl = ctk.CTkLabel(results_frame, text=self.i18n[self.current_lang].get("loading_chats", "Searching..."), font=ctk.CTkFont(family="Segoe UI", size=13))
         loading_lbl.pack(pady=20)
 
         all_dialogs = []
@@ -566,7 +681,13 @@ class App(ctk.CTk):
 
         def update_list(*args):
             """Filters the list in real-time every time the user types a letter"""
-            query = search_var.get().lower()
+            if not results_frame.winfo_exists():
+                return
+            
+            try:
+                query = search_var.get().lower()
+            except Exception:
+                return # search_var might be destroyed
             
             # Clear old results from screen
             for widget in results_frame.winfo_children():
@@ -585,11 +706,12 @@ class App(ctk.CTk):
                         row, 
                         text=self.i18n[self.current_lang].get("btn_select", "Select"), 
                         width=70, 
+                        font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
                         command=lambda cid=d['id']: select_chat(cid)
                     )
                     btn.pack(side="right", padx=5)
 
-                    lbl = ctk.CTkLabel(row, text=f"{d['name']} ({d['id']})", anchor="w")
+                    lbl = ctk.CTkLabel(row, text=f"{d['name']} ({d['id']})", anchor="w", font=ctk.CTkFont(family="Segoe UI", size=13))
                     lbl.pack(side="left", fill="x", expand=True, padx=5)
                     
                     count += 1
@@ -601,11 +723,18 @@ class App(ctk.CTk):
                 nonlocal all_dialogs
                 all_dialogs = future.result()
                 
-                # Clear the "Loading" text and show the list
-                self.after(0, lambda: loading_lbl.destroy() if loading_lbl.winfo_exists() else None)
-                self.after(0, update_list)
+                def _safe_update():
+                    if loading_lbl.winfo_exists():
+                        loading_lbl.destroy()
+                    if popup.winfo_exists():
+                        update_list()
+                
+                self.after(0, _safe_update)
             except Exception as e:
-                self.after(0, lambda: loading_lbl.configure(text=f"Error: {e}"))
+                def _safe_error():
+                    if loading_lbl.winfo_exists():
+                        loading_lbl.configure(text=f"Error: {e}")
+                self.after(0, _safe_error)
 
         # Start background search
         threading.Thread(target=fetch_data, daemon=True).start()
@@ -617,10 +746,12 @@ class App(ctk.CTk):
         if not self.engine.is_running:
             self.save_config()
             self.engine.is_running = True
+            self.update_status("running")
             self.start_btn.configure(text=self.i18n[self.current_lang]["btn_stop"], fg_color="#c0392b", hover_color="#962d22")
             threading.Thread(target=self.bot_loop, daemon=True).start()
         else:
             self.engine.is_running = False
+            self.update_status("connected")
             self.start_btn.configure(text=self.i18n[self.current_lang]["btn_start"], fg_color="#2b8a3e", hover_color="#206a2f")
 
     def bot_loop(self):
@@ -671,9 +802,12 @@ class App(ctk.CTk):
                     self.log(f"Shuffled cycle: Cloning msg ID {msg.id} to {len(current_targets)} targets...")
                     
                     # Broadcast (No fixed timeout, it takes what it needs due to delays)
-                    # We can use a very loose internal timeout if desired, but result() is safe here
+                    cycle_start = time.time()
                     future_send = self.engine.run_coro(self.engine.send_broadcast(msg, current_targets))
                     future_send.result() 
+                    cycle_time = round(time.time() - cycle_start, 1)
+
+                    self.log(self.i18n[self.current_lang]["log_cycle_complete"].format(c=cycle_time, n=interval))
                 else:
                     self.log(f"No messages found in {source} (or timeout occurred).")
             except Exception as e:
@@ -754,6 +888,7 @@ class App(ctk.CTk):
                 # Wait for background result (safe behavior)
                 if future.result():
                     self.log(self.i18n[self.current_lang]["log_connected"])
+                    self.update_status("connected")
                     # Use after to update UI safely from thread
                     self.after(0, lambda: self.connect_btn.configure(
                         text=self.i18n[self.current_lang]["btn_disconnect"], 
