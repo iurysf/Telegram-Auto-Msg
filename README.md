@@ -1,5 +1,13 @@
 # Telegram Auto-Message Bot
 
+<div align="center">
+  <img src="https://img.shields.io/badge/Python-3.9+-blue.svg?style=flat&logo=python&logoColor=white" alt="Python Version"/>
+  <img src="https://img.shields.io/badge/Telethon-v1.30+-blue.svg?style=flat" alt="Telethon"/>
+  <img src="https://img.shields.io/badge/GUI-CustomTkinter-brightgreen.svg?style=flat" alt="CustomTkinter"/>
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey.svg?style=flat" alt="Platform"/>
+</div>
+<br>
+
 A modern, multi-threaded Telegram UserBot available in two flavors: a beautiful graphical interface (GUI) for Desktop users, and a powerful, lightweight Command Line Interface (CLI) for VPS/Server deployments. It allows you to monitor a source chat and automatically broadcast the latest messages (Text, Photos, Videos, Documents) to multiple target groups using advanced anti-detection techniques.
 
 > ⚠️ **Disclaimer:** This tool is intended for educational purposes only. Automating personal Telegram accounts (UserBots) violates Telegram's Terms of Service. Use this software responsibly and at your own risk. The author is not responsible for any banned accounts or damages caused by the misuse of this tool.
