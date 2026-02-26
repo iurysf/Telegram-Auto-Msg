@@ -143,5 +143,8 @@ py -m PyInstaller --noconsole --onefile --icon=icon.ico --add-data "locales.json
 ```
 > **Note:** The compiled code natively uses sys._MEIPASS to unpack resources. Make sure your locales.json and icon.ico (or .png) are passed correctly in the --add-data flags during compilation.
 
-## 📜 Credits
-Created by [IurySF](https://github.com/iurysf)
+## 📜 License
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details. 
+You are free to use, modify, and distribute this software as you see fit.
+
+Created by [IurySF](https://github.com/iurysf). Feel free to open an Issue or submit a Pull Request!
