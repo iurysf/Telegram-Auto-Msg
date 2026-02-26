@@ -141,7 +141,7 @@ To generate a standalone Windows executable without a background console:
 ```powershell
 py -m PyInstaller --noconsole --onefile --icon=icon.ico --add-data "locales.json;." --add-data "icon.ico;." --collect-all customtkinter main_gui.py
 ```
-> **Note:** Ensure `locales.json` and `icon.ico` are placed in the same directory as the generated `.exe` for the application to load properly.
+> **Note:** The compiled code natively uses sys._MEIPASS to unpack resources. Make sure your locales.json and icon.ico (or .png) are passed correctly in the --add-data flags during compilation.
 
 ## 📜 Credits
 Created by [IurySF](https://github.com/iurysf)
