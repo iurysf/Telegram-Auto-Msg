@@ -12,6 +12,14 @@ A modern, multi-threaded Telegram UserBot available in two flavors: a beautiful 
 
 > ⚠️ **Disclaimer:** This tool is intended for educational purposes only. Automating personal Telegram accounts (UserBots) violates Telegram's Terms of Service. Use this software responsibly and at your own risk. The author is not responsible for any banned accounts or damages caused by the misuse of this tool.
 
+## 🚀 Quick Start (Local Setup)
+```bash
+git clone https://github.com/iurysf/Telegram-Auto-Msg.git
+cd Telegram-Auto-Msg
+pip install -r requirements.txt
+python main_gui.py
+```
+
 ## 🚀 Features & Anti-Ban Architecture
 
 - **UI/UX Excellence**: Built with `CustomTkinter` featuring a responsive grid, real-time hacker-style terminal logs, and i18n support (English/Portuguese).
